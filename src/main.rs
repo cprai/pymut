@@ -1,6 +1,9 @@
 use std::fs;
 use rustpython_parser::{ast, parser, location};
 
+mod traversal;
+use crate::traversal::Visitor;
+
 fn mutate(ast: ast::Program, location: location::Location) -> ast::Program {
     return ast;
 }
@@ -213,7 +216,14 @@ fn walk_suite(suite: &ast::Suite, parent_id: &String, graph: &mut Vec<String>) {
 
 fn main() {
     let file = fs::read_to_string("test.py").expect("");
-    let program = mutate(parser::parse_program(&file).unwrap(), ast::Location::new(20, 5));
+    let program: ast::Program = mutate(parser::parse_program(&file).unwrap(), ast::Location::new(20, 5));
+    let program2: ast::Program = program;
+    let program3: ast::Program = program2;
+
+    //for statement in &program.statements {
+    //    statement.visit(&ast::Location::new(20, 5));
+    //}
+    program.statements.visit(&ast::Location::new(22, 5));
 
     let mut graph: Vec<String> = Vec::new();
 

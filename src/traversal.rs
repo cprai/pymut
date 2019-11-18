@@ -1,58 +1,57 @@
 use rustpython_parser::{ast, parser, location};
 
-trait ASTNode {
-    fn children(&self) -> Vec<Box<dyn ASTNode>>;
+pub trait Visitor {
+    fn visit(&self, location: &location::Location);
 }
 
-impl ASTNode for ast::Expression {
-    fn children(&self) -> Vec<dyn ASTNode> {
+impl Visitor for ast::Expression {
+    fn visit(&self, location: &location::Location) {
+        if &self.location == location {
+            println!("whoopie!");
+            //match &self.node {
+            //    ast::ExpressionType::Binop {a, op, b} => op = ast::Operator::Mult,
+
+            //    _ => (),
+            //}
+        }
+
+        // recurse
         match &self.node {
-            ast::ExpressionType::Identifier {name} => Vec::new(),
-            ast::ExpressionType::Number {value} => Vec::new(),
-            ast::ExpressionType::BoolOp {op, values} => {
-                let ret: Vec<&dyn ASTNode> = Vec::new();
-                for expression in values {
-                    ret.push(&expression);
+            ast::ExpressionType::BoolOp {op, values} => values.iter().for_each(|expression| expression.visit(location)),
+            ast::ExpressionType::Binop {a, op, b} => {(*a).visit(location); (*b).visit(location);},
+            ast::ExpressionType::Unop {op, a} => (*a).visit(location),
+            ast::ExpressionType::Compare {vals, ops} => vals.iter().for_each(|expression| expression.visit(location)),
+
+            _ => (),
+        }
+    }
+}
+
+impl Visitor for ast::Statement {
+    fn visit(&self, location: &location::Location) {
+        match &self.node {
+            ast::StatementType::Break => (),
+            ast::StatementType::Continue => (),
+            ast::StatementType::Pass => (),
+            ast::StatementType::Assign {targets, value} => {
+                for expression in targets {
+                    expression.visit(location);
                 }
-                ret
+                value.visit(location);
             },
-            ast::ExpressionType::Binop {a, op, b} => vec![&*a, &*b],
-            ast::ExpressionType::Unop {op, a} => vec![&*a],
-            ast::ExpressionType::Compare {vals, ops} => {
-                let ret: Vec<&dyn ASTNode> = Vec::new();
-                for expression in vals {
-                    ret.push(&expression);
-                }
-                ret
-            },
-            ast::ExpressionType::True => Vec::new(),
-            ast::ExpressionType::False => Vec::new(),
-            ast::ExpressionType::None => Vec::new(),
+            ast::StatementType::Expression {expression} => expression.visit(location),
+            //ast::StatementType::If {test, body, orelse} => 
+            //ast::StatementType::While {test, body, orelse} => {
 
             _ => unreachable!(),
         }
     }
 }
 
-impl ASTNode for &ast::Statement {
-    fn children(&self) -> Vec<&dyn ASTNode> {
-        match &self.node {
-            ast::StatementType::Break => Vec::new(),
-            ast::StatementType::Continue => Vec::new(),
-            ast::StatementType::Pass => Vec::new(),
-            ast::StatementType::Assign {targets, value} => {
-                let ret: Vec<&dyn ASTNode> = Vec::new();
-                for expression in targets {
-                    ret.push(&expression);
-                }
-                ret.push(&value);
-                ret
-            },
-            ast::StatementType::Expression {expression} => vec![&expression],
-            //ast::StatementType::If {test, body, orelse} => 
-            //ast::StatementType::While {test, body, orelse} => {
-
-            _ => unreachable!(),
+impl Visitor for ast::Suite {
+    fn visit(&self, location: &location::Location) {
+        for statement in self {
+            statement.visit(location);
         }
     }
 }
