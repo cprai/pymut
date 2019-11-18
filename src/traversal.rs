@@ -13,7 +13,7 @@ impl Visitor for ast::Program {
 impl<T: Visitor> Visitor for Option<T> {
     fn visit(&mut self, location: &location::Location) {
         match self {
-            Some(thing) => thing.visit(location),
+            Some(visitable) => visitable.visit(location),
             None => (),
         }
     }
