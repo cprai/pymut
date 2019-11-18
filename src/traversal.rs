@@ -1,4 +1,4 @@
-use rustpython_parser::{ast, parser, location};
+use rustpython_parser::{ast, location};
 
 pub trait Visitor {
     fn visit(&mut self, location: &location::Location);
@@ -33,10 +33,6 @@ impl<T1: Visitor, T2: Visitor> Visitor for (T1, T2) {
         self.0.visit(location);
         self.1.visit(location);
     }
-}
-
-impl Visitor for ast::ImportSymbol {
-    fn visit(&mut self, _location: &location::Location) { }
 }
 
 impl Visitor for ast::Comprehension {
@@ -155,8 +151,8 @@ impl Visitor for ast::Statement {
             ast::StatementType::Break => (),
             ast::StatementType::Continue => (),
             ast::StatementType::Return {value} => value.visit(location),
-            ast::StatementType::Import {names} => names.visit(location),
-            ast::StatementType::ImportFrom {level: _, module: _, names} => names.visit(location),
+            ast::StatementType::Import {names: _} => (),
+            ast::StatementType::ImportFrom {level: _, module: _, names: _} => (),
             ast::StatementType::Pass => (),
             ast::StatementType::Assert {test, msg} => { test.visit(location); msg.visit(location); },
             ast::StatementType::Delete {targets} => targets.visit(location),
