@@ -4,6 +4,12 @@ pub trait Visitor {
     fn visit(&mut self, location: &location::Location);
 }
 
+impl Visitor for ast::Program {
+    fn visit(&mut self, location: &location::Location) {
+        self.statements.visit(location);
+    }
+}
+
 impl<T: Visitor> Visitor for Option<T> {
     fn visit(&mut self, location: &location::Location) {
         match self {
