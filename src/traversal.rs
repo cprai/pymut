@@ -1,18 +1,27 @@
 use rustpython_parser::{ast, parser, location};
 
 pub trait Visitor {
-    fn visit(&self, location: &location::Location);
+    fn visit(&mut self, location: &location::Location);
+}
+
+impl<T: Visitor> Visitor for Option<T> {
+    fn visit(&self, location: &location::Location) {
+        match self {
+            Some(thing) => thing.visit(location),
+            None => (),
+        }
+    }
 }
 
 impl Visitor for ast::Expression {
     fn visit(&self, location: &location::Location) {
         if &self.location == location {
             println!("whoopie!");
-            //match &self.node {
-            //    ast::ExpressionType::Binop {a, op, b} => op = ast::Operator::Mult,
+            match &self.node {
+                ast::ExpressionType::Binop {a, op, b} => op = &ast::Operator::Mult,
 
-            //    _ => (),
-            //}
+                _ => (),
+            }
         }
 
         // recurse
@@ -32,7 +41,14 @@ impl Visitor for ast::Statement {
         match &self.node {
             ast::StatementType::Break => (),
             ast::StatementType::Continue => (),
+            ast::StatementType::Return {value} => {
+                value.visit(location);
+            },
             ast::StatementType::Pass => (),
+            ast::StatementType::Assert {test, msg} => {
+                test.visit(location);
+                msg.visit(location);
+            }
             ast::StatementType::Assign {targets, value} => {
                 for expression in targets {
                     expression.visit(location);
@@ -40,8 +56,16 @@ impl Visitor for ast::Statement {
                 value.visit(location);
             },
             ast::StatementType::Expression {expression} => expression.visit(location),
-            //ast::StatementType::If {test, body, orelse} => 
-            //ast::StatementType::While {test, body, orelse} => {
+            ast::StatementType::If {test, body, orelse} => {
+                test.visit(location);
+                body.visit(location);
+                orelse.visit(location);
+            },
+            ast::StatementType::While {test, body, orelse} => {
+                test.visit(location);
+                body.visit(location);
+                orelse.visit(location);
+            },
 
             _ => unreachable!(),
         }
@@ -49,7 +73,7 @@ impl Visitor for ast::Statement {
 }
 
 impl Visitor for ast::Suite {
-    fn visit(&self, location: &location::Location) {
+    fn visit(&mut self, location: &location::Location) {
         for statement in self {
             statement.visit(location);
         }
