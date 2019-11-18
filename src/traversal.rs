@@ -56,31 +56,26 @@ impl Visitor for ast::Statement {
         match &mut self.node {
             ast::StatementType::Break => (),
             ast::StatementType::Continue => (),
-            ast::StatementType::Return {value} => {
-                value.visit(location);
-            },
+            ast::StatementType::Return {value} => value.visit(location),
+            // Import
+            // ImportFrom
             ast::StatementType::Pass => (),
-            ast::StatementType::Assert {test, msg} => {
-                test.visit(location);
-                msg.visit(location);
-            }
-            ast::StatementType::Assign {targets, value} => {
-                for expression in targets {
-                    expression.visit(location);
-                }
-                value.visit(location);
-            },
+            ast::StatementType::Assert {test, msg} => { test.visit(location); msg.visit(location); },
+            ast::StatementType::Delete {targets} => targets.visit(location),
+            ast::StatementType::Assign {targets, value} => { targets.visit(location); value.visit(location); },
+            // AugAssign
+            // AnnAssign
             ast::StatementType::Expression {expression} => expression.visit(location),
-            ast::StatementType::If {test, body, orelse} => {
-                test.visit(location);
-                body.visit(location);
-                orelse.visit(location);
-            },
-            ast::StatementType::While {test, body, orelse} => {
-                test.visit(location);
-                body.visit(location);
-                orelse.visit(location);
-            },
+            // Global
+            // Nonlocal
+            ast::StatementType::If {test, body, orelse} => { test.visit(location); body.visit(location); orelse.visit(location); },
+            ast::StatementType::While {test, body, orelse} => { test.visit(location); body.visit(location); orelse.visit(location); },
+            // With
+            // For
+            ast::StatementType::Raise {exception, cause} => { exception.visit(location); cause.visit(location); },
+            // Try
+            // ClassDef
+            // FunctionDef
 
             _ => unreachable!(),
         }
