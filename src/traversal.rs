@@ -23,7 +23,8 @@ impl<T: Visitor> Visitor for Vec<T> {
 
 impl<T: Visitor> Visitor for Box<T> {
     fn visit(&mut self, location: &location::Location) {
-        (*self).visit(location);
+        let visitable: &mut T = &mut *self;
+        visitable.visit(location);
     }
 }
 
@@ -41,7 +42,7 @@ impl Visitor for ast::Expression {
         // recurse
         match &mut self.node {
             ast::ExpressionType::BoolOp {op: _, values} => values.visit(location),
-            ast::ExpressionType::Binop {a, op: _, b} => {a.visit(location); b.visit(location);},
+            ast::ExpressionType::Binop {a, op: _, b} => {a.visit(location); b.visit(location);},//println!("{} {}", self.location.row(), self.location.column())},
             ast::ExpressionType::Unop {op: _, a} => a.visit(location),
             ast::ExpressionType::Compare {vals, ops: _} => vals.visit(location),
 
@@ -85,11 +86,3 @@ impl Visitor for ast::Statement {
         }
     }
 }
-
-//impl Visitor for ast::Suite {
-//    fn visit(&mut self, location: &location::Location) {
-//        for statement in self {
-//            statement.visit(location);
-//        }
-//    }
-//}
