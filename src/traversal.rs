@@ -28,8 +28,34 @@ impl<T: Visitor> Visitor for Box<T> {
     }
 }
 
+impl<T1: Visitor, T2: Visitor> Visitor for (T1, T2) {
+    fn visit(&mut self, location: &location::Location) {
+        self.0.visit(location);
+        self.1.visit(location);
+    }
+}
+
 impl Visitor for ast::ImportSymbol {
     fn visit(&mut self, _location: &location::Location) { }
+}
+
+impl Visitor for ast::Comprehension {
+    fn visit(&mut self, location: &location::Location) {
+        self.target.visit(location);
+        self.iter.visit(location);
+        self.ifs.visit(location);
+    }
+}
+
+impl Visitor for ast::ComprehensionKind {
+    fn visit(&mut self, location: &location::Location) {
+        match self {
+            ast::ComprehensionKind::GeneratorExpression {element} => element.visit(location),
+            ast::ComprehensionKind::List {element} => element.visit(location),
+            ast::ComprehensionKind::Set {element} => element.visit(location),
+            ast::ComprehensionKind::Dict {key, value} => { key.visit(location); value.visit(location); },
+        }
+    }
 }
 
 impl Visitor for ast::Keyword {
@@ -105,22 +131,20 @@ impl Visitor for ast::Expression {
             ast::ExpressionType::Number {value: _} => (),
             ast::ExpressionType::List {elements} => elements.visit(location),
             ast::ExpressionType::Tuple {elements} => elements.visit(location),
-            //ast::ExpressionType::Dict {} => ,
+            ast::ExpressionType::Dict {elements} => elements.visit(location),
             ast::ExpressionType::Set {elements} => elements.visit(location),
-            //ast::ExpressionType::Comprehension {} => ,
+            ast::ExpressionType::Comprehension {kind, generators} => { kind.visit(location); generators.visit(location); },
             ast::ExpressionType::Starred {value} => value.visit(location),
             ast::ExpressionType::Slice {elements} => elements.visit(location),
             ast::ExpressionType::String {value: _} => (),
             ast::ExpressionType::Bytes {value: _} => (),
             ast::ExpressionType::Identifier {name: _} => (),
-            //ast::ExpressionType::Lambda {} => ,
+            ast::ExpressionType::Lambda {args, body} => { args.visit(location); body.visit(location); },
             ast::ExpressionType::IfExpression {test, body, orelse} => { test.visit(location); body.visit(location); orelse.visit(location); },
             ast::ExpressionType::True {} => (),
             ast::ExpressionType::False {} => (),
             ast::ExpressionType::None {} => (),
             ast::ExpressionType::Ellipsis {} => (),
-
-            _ => (),
         }
     }
 }
