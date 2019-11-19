@@ -19,7 +19,11 @@ fn mutate(ast: ast::Program, location: location::Location) -> ast::Program {
 }
 
 fn take(expr: &mut ast::Expression) {
-    println!("{} {}", expr.location.row(), expr.location.column());
+    println!("expr{}_{}", expr.location.row(), expr.location.column());
+}
+
+fn take2(expr: &mut ast::Statement) {
+    println!("stmt{}_{}", expr.location.row(), expr.location.column());
 }
 
 fn main() {
@@ -32,7 +36,7 @@ fn main() {
     //program.visit(&ast::Location::new(319, 30));
 
     //program.visit(&|expr: ast::Expression| println!("{} {}", expr.location.row, expr.location.column));
-    program.visit(&take);
+    program.visit((&take, &take2));
 
 
     //match compile::compile_program(program, "".to_string(), 0) {
