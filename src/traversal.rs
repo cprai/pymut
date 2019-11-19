@@ -1,17 +1,17 @@
 use rustpython_parser::ast;
 
-pub trait Visitor {
-    fn visit(&mut self, callback: &dyn Fn(&mut ast::Located<ast::ExpressionType>));
+pub trait Visitor<C> {
+    fn visit(&mut self, callback: &dyn Fn(&mut C));
 }
 
-impl Visitor for ast::Program {
-    fn visit(&mut self, callback: &dyn Fn(&mut ast::Located<ast::ExpressionType>)) {
+impl<C> Visitor<C> for ast::Program {
+    fn visit(&mut self, callback: &dyn Fn(&mut C)) {
         self.statements.visit(callback);
     }
 }
 
-impl<T: Visitor> Visitor for Option<T> {
-    fn visit(&mut self, callback: &dyn Fn(&mut ast::Located<ast::ExpressionType>)) {
+impl<C, T: Visitor<C>> Visitor<C> for Option<T> {
+    fn visit(&mut self, callback: &dyn Fn(&mut C)) {
         match self {
             Some(visitable) => visitable.visit(callback),
             None => (),
@@ -19,38 +19,38 @@ impl<T: Visitor> Visitor for Option<T> {
     }
 }
 
-impl<T: Visitor> Visitor for Vec<T> {
-    fn visit(&mut self, callback: &dyn Fn(&mut ast::Located<ast::ExpressionType>)) {
+impl<C, T: Visitor<C>> Visitor<C> for Vec<T> {
+    fn visit(&mut self, callback: &dyn Fn(&mut C)) {
         for visitable in self {
             visitable.visit(callback);
         }
     }
 }
 
-impl<T: Visitor> Visitor for Box<T> {
-    fn visit(&mut self, callback: &dyn Fn(&mut ast::Located<ast::ExpressionType>)) {
+impl<C, T: Visitor<C>> Visitor<C> for Box<T> {
+    fn visit(&mut self, callback: &dyn Fn(&mut C)) {
         let visitable: &mut T = &mut *self;
         visitable.visit(callback);
     }
 }
 
-impl<T1: Visitor, T2: Visitor> Visitor for (T1, T2) {
-    fn visit(&mut self, callback: &dyn Fn(&mut ast::Located<ast::ExpressionType>)) {
+impl<C, T1: Visitor<C>, T2: Visitor<C>> Visitor<C> for (T1, T2) {
+    fn visit(&mut self, callback: &dyn Fn(&mut C)) {
         self.0.visit(callback);
         self.1.visit(callback);
     }
 }
 
-impl Visitor for ast::Comprehension {
-    fn visit(&mut self, callback: &dyn Fn(&mut ast::Located<ast::ExpressionType>)) {
+impl<C> Visitor<C> for ast::Comprehension {
+    fn visit(&mut self, callback: &dyn Fn(&mut C)) {
         self.target.visit(callback);
         self.iter.visit(callback);
         self.ifs.visit(callback);
     }
 }
 
-impl Visitor for ast::ComprehensionKind {
-    fn visit(&mut self, callback: &dyn Fn(&mut ast::Located<ast::ExpressionType>)) {
+impl<C> Visitor<C> for ast::ComprehensionKind {
+    fn visit(&mut self, callback: &dyn Fn(&mut C)) {
         match self {
             ast::ComprehensionKind::GeneratorExpression {element} => element.visit(callback),
             ast::ComprehensionKind::List {element} => element.visit(callback),
@@ -60,28 +60,28 @@ impl Visitor for ast::ComprehensionKind {
     }
 }
 
-impl Visitor for ast::Keyword {
-    fn visit(&mut self, callback: &dyn Fn(&mut ast::Located<ast::ExpressionType>)) {
+impl<C> Visitor<C> for ast::Keyword {
+    fn visit(&mut self, callback: &dyn Fn(&mut C)) {
         self.value.visit(callback);
     }
 }
 
-impl Visitor for ast::WithItem {
-    fn visit(&mut self, callback: &dyn Fn(&mut ast::Located<ast::ExpressionType>)) {
+impl<C> Visitor<C> for ast::WithItem {
+    fn visit(&mut self, callback: &dyn Fn(&mut C)) {
         self.context_expr.visit(callback);
         self.optional_vars.visit(callback);
     }
 }
 
-impl Visitor for ast::ExceptHandler {
-    fn visit(&mut self, callback: &dyn Fn(&mut ast::Located<ast::ExpressionType>)) {
+impl<C> Visitor<C> for ast::ExceptHandler {
+    fn visit(&mut self, callback: &dyn Fn(&mut C)) {
         self.typ.visit(callback);
         self.body.visit(callback);
     }
 }
 
-impl Visitor for ast::Varargs {
-    fn visit(&mut self, callback: &dyn Fn(&mut ast::Located<ast::ExpressionType>)) {
+impl<C> Visitor<C> for ast::Varargs {
+    fn visit(&mut self, callback: &dyn Fn(&mut C)) {
         match self {
             ast::Varargs::None => (),
             ast::Varargs::Unnamed => (),
@@ -90,14 +90,14 @@ impl Visitor for ast::Varargs {
     }
 }
 
-impl Visitor for ast::Parameter {
-    fn visit(&mut self, callback: &dyn Fn(&mut ast::Located<ast::ExpressionType>)) {
+impl<C> Visitor<C> for ast::Parameter {
+    fn visit(&mut self, callback: &dyn Fn(&mut C)) {
         self.annotation.visit(callback);
     }
 }
 
-impl Visitor for ast::Parameters {
-    fn visit(&mut self, callback: &dyn Fn(&mut ast::Located<ast::ExpressionType>)) {
+impl<C> Visitor<C> for ast::Parameters {
+    fn visit(&mut self, callback: &dyn Fn(&mut C)) {
         self.args.visit(callback);
         self.kwonlyargs.visit(callback);
         self.vararg.visit(callback);
@@ -107,8 +107,8 @@ impl Visitor for ast::Parameters {
     }
 }
 
-impl Visitor for ast::Expression {
-    fn visit(&mut self, callback: &dyn Fn(&mut ast::Located<ast::ExpressionType>)) {
+impl<C> Visitor<C> for ast::Expression {
+    fn visit(&mut self, callback: &dyn Fn(&mut C)) {
         callback(self);
 
         // recurse
@@ -144,8 +144,8 @@ impl Visitor for ast::Expression {
     }
 }
 
-impl Visitor for ast::Statement {
-    fn visit(&mut self, callback: &dyn Fn(&mut ast::Located<ast::ExpressionType>)) {
+impl<C> Visitor<C> for ast::Statement {
+    fn visit(&mut self, callback: &dyn Fn(&mut C)) {
         match &mut self.node {
             ast::StatementType::Break => (),
             ast::StatementType::Continue => (),
