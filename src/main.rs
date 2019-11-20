@@ -53,7 +53,11 @@ fn main() {
 
     let mut mutated_program = program.clone();
 
-    mutated_program.visit((&take, &take2));
+    let mut i: usize = 0;
+    mutated_program.visit(&mut |expr| {
+        i += 1;
+        println!("{} expr{}_{}: {}", i, expr.location.row(), expr.location.column(), util::stringify_expression(&expr.node));
+    });
 
     run(program);
     run(mutated_program);
