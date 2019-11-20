@@ -13,9 +13,10 @@ use rustpython_vm::{
 };
 
 mod traversal;
+mod mutation;
 mod util;
 use crate::traversal::Visitor;
-//use crate::util;
+use crate::mutation::Mutation;
 
 fn take(expr: &mut ast::Expression) {
     if expr.location != ast::Location::new(24, 11) {
@@ -24,11 +25,7 @@ fn take(expr: &mut ast::Expression) {
 
     println!("expr{}_{}: {}", expr.location.row(), expr.location.column(), util::stringify_expression(&expr.node));
 
-    match &mut expr.node {
-        ast::ExpressionType::Binop {a: _, op, b: _} => { *op = ast::Operator::Mult },
-
-        _ => (),
-    }
+    expr.mutate(mutation::MutationType::BinaryOperatorReplacement{new_operator: ast::Operator::Sub});
 }
 
 fn take2(stmt: &mut ast::Statement) {
