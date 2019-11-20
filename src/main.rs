@@ -1,13 +1,13 @@
 use std::fs;
-use rustpython_parser::{ast, parser, location};
+use rustpython_parser::{ast, parser};
 use rustpython_compiler::{compile};
 use rustpython_vm::{
-    import, match_class,
-    obj,
-    print_exception,
+    //import, match_class,
+    //obj,
+    //print_exception,
     pyobject,
-    pyobject::{ItemProtocol, PyResult, PyRef},
-    scope::Scope,
+    //pyobject::{ItemProtocol, PyResult, PyRef},
+    //scope::Scope,
     PySettings,
     VirtualMachine,
 };
