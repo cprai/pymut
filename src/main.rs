@@ -8,47 +8,56 @@ use rustpython_vm::{
     pyobject,
     pyobject::{ItemProtocol, PyResult, PyRef},
     scope::Scope,
-    util, PySettings, VirtualMachine,
+    PySettings,
+    VirtualMachine,
 };
 
 mod traversal;
+mod util;
 use crate::traversal::Visitor;
-
-fn mutate(ast: ast::Program, location: location::Location) -> ast::Program {
-    return ast;
-}
+//use crate::util;
 
 fn take(expr: &mut ast::Expression) {
-    println!("expr{}_{}", expr.location.row(), expr.location.column());
+    if expr.location != ast::Location::new(24, 11) {
+        return;
+    }
+
+    println!("expr{}_{}: {}", expr.location.row(), expr.location.column(), util::stringify_expression(&expr.node));
+
+    match &mut expr.node {
+        ast::ExpressionType::Binop {a: _, op, b: _} => { *op = ast::Operator::Mult },
+
+        _ => (),
+    }
 }
 
-fn take2(expr: &mut ast::Statement) {
-    println!("stmt{}_{}", expr.location.row(), expr.location.column());
+fn take2(stmt: &mut ast::Statement) {
+    //println!("stmt{}_{}: {}", stmt.location.row(), stmt.location.column(), util::stringify_statement(&stmt.node));
+}
+
+fn run(ast: ast::Program) {
+    match compile::compile_program(ast, "".to_string(), 0) {
+        Ok(code_object) => {
+            let settings = PySettings::default();
+            let vm = VirtualMachine::new(settings);
+            let scope = vm.new_scope_with_builtins();
+            //let code = obj::objcode::PyCode::new(code_object);
+            //let codeRef = PyRef{code};
+            let context = pyobject::PyContext::default();
+            vm.run_code_obj(context.new_code_object(code_object), scope);
+        },
+        Err(error) => unreachable!(),
+    }
 }
 
 fn main() {
-    let file = fs::read_to_string("django.py").expect("");
-    //let program: ast::Program = mutate(parser::parse_program(&file).unwrap(), ast::Location::new(20, 5));
-    let mut program: ast::Program = parser::parse_program(&file).unwrap();
-    //let program2: ast::Program = program;
-    //let program3: ast::Program = program2;
+    let file = fs::read_to_string("test.py").expect("");
+    let program: ast::Program = parser::parse_program(&file).unwrap();
 
-    //program.visit(&ast::Location::new(319, 30));
+    let mut mutated_program = program.clone();
 
-    //program.visit(&|expr: ast::Expression| println!("{} {}", expr.location.row, expr.location.column));
-    program.visit((&take, &take2));
+    mutated_program.visit((&take, &take2));
 
-
-    //match compile::compile_program(program, "".to_string(), 0) {
-    //    Ok(code_object) => {
-    //        let settings = PySettings::default();
-    //        let vm = VirtualMachine::new(settings);
-    //        let scope = vm.new_scope_with_builtins();
-    //        //let code = obj::objcode::PyCode::new(code_object);
-    //        //let codeRef = PyRef{code};
-    //        let context = pyobject::PyContext::default();
-    //        vm.run_code_obj(context.new_code_object(code_object), scope);
-    //    },
-    //    Err(error) => unreachable!(),
-    //}
+    run(program);
+    run(mutated_program);
 }
