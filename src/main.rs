@@ -16,21 +16,7 @@ mod traversal;
 mod mutation;
 mod util;
 use crate::traversal::Visitor;
-use crate::mutation::Mutation;
-
-fn take(expr: &mut ast::Expression) {
-    if expr.location != ast::Location::new(24, 11) {
-        return;
-    }
-
-    println!("expr{}_{}: {}", expr.location.row(), expr.location.column(), util::stringify_expression(&expr.node));
-
-    expr.mutate(mutation::MutationType::BinaryOperatorReplacement{new_operator: ast::Operator::Sub});
-}
-
-fn take2(stmt: &mut ast::Statement) {
-    //println!("stmt{}_{}: {}", stmt.location.row(), stmt.location.column(), util::stringify_statement(&stmt.node));
-}
+use crate::mutation::{Mutation, MutationType, Mutate};
 
 fn run(ast: ast::Program) {
     match compile::compile_program(ast, "".to_string(), 0) {
@@ -49,16 +35,46 @@ fn run(ast: ast::Program) {
 
 fn main() {
     let file = fs::read_to_string("test.py").expect("");
-    let program: ast::Program = parser::parse_program(&file).unwrap();
+    let mut program: ast::Program = parser::parse_program(&file).unwrap();
 
-    let mut mutated_program = program.clone();
+    let mut mutations: Vec<Mutation> = Vec::new();
+    {
+        let mut i: u64 = 0;
+        program.visit(&mut |expr| {
+            i += 1;
 
-    let mut i: usize = 0;
-    mutated_program.visit(&mut |expr| {
-        i += 1;
-        println!("{} expr{}_{}: {}", i, expr.location.row(), expr.location.column(), util::stringify_expression(&expr.node));
-    });
+            match expr.node {
+                ast::ExpressionType::Binop {..} => {
+                    {
+                        let mutation = MutationType::BinaryOperatorReplacement{new_operator: ast::Operator::Mult};
+                        mutations.push(Mutation{traversal_location: i, mutation_type: mutation});
+                    }
+                    {
+                        let mutation = MutationType::BinaryOperatorReplacement{new_operator: ast::Operator::Sub};
+                        mutations.push(Mutation{traversal_location: i, mutation_type: mutation});
+                    }
+                    {
+                        let mutation = MutationType::BinaryOperatorReplacement{new_operator: ast::Operator::Pow};
+                        mutations.push(Mutation{traversal_location: i, mutation_type: mutation});
+                    }
+                },
+                _ => (),
+            }
+        });
+    }
 
-    run(program);
-    run(mutated_program);
+    for mutation in mutations {
+        let mut mutated_program = program.clone();
+
+        let mut i: u64 = 0;
+        mutated_program.visit(&mut |expr| {
+            i += 1;
+
+            if i == mutation.traversal_location {
+                expr.mutate(mutation.mutation_type.clone());
+            }
+        });
+
+        run(mutated_program);
+    }
 }
