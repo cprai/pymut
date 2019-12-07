@@ -1,6 +1,8 @@
 use rustpython_parser::ast;
 use serde::{Serialize, Deserialize};
 
+use crate::traversal::Visitor;
+
 use crate::serde_compatibility::OperatorSerde;
 use crate::serde_compatibility::ComparisonSerde;
 use crate::serde_compatibility::NumberSerde;
@@ -55,4 +57,45 @@ impl Mutate for ast::Expression {
 
         }
     }
+}
+
+pub fn explore_mutations(program: &mut ast::Program) -> Vec<Mutation> {
+    let mut mutations: Vec<Mutation> = Vec::new();
+    let mut i: u64 = 0;
+
+    program.visit(&mut |expr| {
+        i += 1;
+
+        match expr.node {
+            ast::ExpressionType::Binop {..} => {
+                {
+                    let mutation = MutationType::BinaryOperatorReplacement{new_operator: ast::Operator::Mult};
+                    mutations.push(Mutation{traversal_location: i, mutation_type: mutation});
+                }
+                {
+                    let mutation = MutationType::BinaryOperatorReplacement{new_operator: ast::Operator::Sub};
+                    mutations.push(Mutation{traversal_location: i, mutation_type: mutation});
+                }
+                {
+                    let mutation = MutationType::BinaryOperatorReplacement{new_operator: ast::Operator::Pow};
+                    mutations.push(Mutation{traversal_location: i, mutation_type: mutation});
+                }
+            },
+            _ => (),
+        }
+    });
+
+    return mutations;
+}
+
+pub fn apply_mutation(program: &mut ast::Program, mutation: Mutation) {
+    let mut i: u64 = 0;
+
+    program.visit(&mut |expr| {
+        i += 1;
+
+        if i == mutation.traversal_location {
+            expr.mutate(mutation.mutation_type.clone());
+        }
+    });
 }

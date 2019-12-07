@@ -16,8 +16,7 @@ mod traversal;
 mod mutation;
 mod util;
 mod serde_compatibility;
-use crate::traversal::Visitor;
-use crate::mutation::{Mutation, MutationType, Mutate};
+use crate::mutation::{Mutation, explore_mutations, apply_mutation};
 
 fn run(ast: ast::Program) {
     match compile::compile_program(ast, "".to_string(), 0) {
@@ -38,45 +37,14 @@ fn main() {
     let file = fs::read_to_string("test.py").expect("");
     let mut program: ast::Program = parser::parse_program(&file).unwrap();
 
-    let mut mutations: Vec<Mutation> = Vec::new();
-    {
-        let mut i: u64 = 0;
-        program.visit(&mut |expr| {
-            i += 1;
-
-            match expr.node {
-                ast::ExpressionType::Binop {..} => {
-                    {
-                        let mutation = MutationType::BinaryOperatorReplacement{new_operator: ast::Operator::Mult};
-                        mutations.push(Mutation{traversal_location: i, mutation_type: mutation});
-                    }
-                    {
-                        let mutation = MutationType::BinaryOperatorReplacement{new_operator: ast::Operator::Sub};
-                        mutations.push(Mutation{traversal_location: i, mutation_type: mutation});
-                    }
-                    {
-                        let mutation = MutationType::BinaryOperatorReplacement{new_operator: ast::Operator::Pow};
-                        mutations.push(Mutation{traversal_location: i, mutation_type: mutation});
-                    }
-                },
-                _ => (),
-            }
-        });
-    }
-    let serialized = serde_json::to_string(&mutations).unwrap();
-    println!("serialized = {}", serialized);
+    let mutations: Vec<Mutation> = explore_mutations(&mut program);
 
     for mutation in mutations {
+        let serialized = serde_json::to_string(&mutation).unwrap();
+        println!("serialized = {}", serialized);
+
         let mut mutated_program = program.clone();
-
-        let mut i: u64 = 0;
-        mutated_program.visit(&mut |expr| {
-            i += 1;
-
-            if i == mutation.traversal_location {
-                expr.mutate(mutation.mutation_type.clone());
-            }
-        });
+        apply_mutation(&mut mutated_program, mutation);
 
         run(mutated_program);
     }
