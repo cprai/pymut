@@ -19,7 +19,14 @@ mod util;
 mod serde_compatibility;
 use crate::mutation::{Mutation, explore_mutations, apply_mutation};
 
-fn run(ast: ast::Program) -> i64 {
+enum RunResult {
+    Sucess,
+    CompileError,
+    RuntimeError,
+    Timeout,
+}
+
+fn run(ast: ast::Program) -> RunResult {
     let settings = PySettings::default();
     let vm = VirtualMachine::new(settings);
     let context = pyobject::PyContext::default();
@@ -28,11 +35,11 @@ fn run(ast: ast::Program) -> i64 {
     match compile::compile_program(ast, "".to_string(), 0) {
         Ok(code_object) => {
             match vm.run_code_obj(context.new_code_object(code_object), scope) {
-                Ok(..) => 0,
-                Err(..) => -1,
+                Ok(..) => RunResult::Sucess,
+                Err(..) => RunResult::RuntimeError,
             }
         },
-        Err(..) => -1,
+        Err(..) => RunResult::CompileError,
     }
 }
 
@@ -50,6 +57,13 @@ fn main() {
         let mut mutated_program = program.clone();
         apply_mutation(&mut mutated_program, mutation);
 
-        println!("{} {}", mutated_program == program, run(mutated_program));
+        if mutated_program == program {
+            continue;
+        }
+
+        match run(mutated_program) {
+            RunResult::Sucess => println!("-- Uncaught mutation!"),
+            _ => println!("Caught mutation"),
+        }
     }
 }
