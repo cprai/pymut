@@ -1,7 +1,5 @@
 use std::fs;
-use std::env;
 use parse_display::{Display, FromStr};
-use rusqlite::{Connection, Result, NO_PARAMS};
 use rustpython_parser::{ast, parser};
 use rustpython_compiler::{compile};
 use rustpython_vm::{
@@ -20,6 +18,13 @@ mod mutation;
 mod util;
 mod serde_compatibility;
 use crate::mutation::{Mutation, explore_mutations, apply_mutation};
+
+#[macro_use]
+extern crate diesel;
+
+use diesel::sqlite::Sqlite;
+use diesel::insert_into;
+use diesel::prelude::*;
 
 #[macro_use]
 extern crate clap;
@@ -67,42 +72,53 @@ fn run(ast: ast::Program) -> RunResult {
     }
 }
 
+mod schema {
+    table! {
+        mutations (file_sha1, location, mutation) {
+            file_sha1 -> Text,
+            location -> Integer,
+            mutation -> Text,
+        }
+    }
+}
+
+use schema::mutations;
+
+#[derive(Insertable, Queryable, PartialEq)]
+#[table_name = "mutations"]
+struct MutationEntry {
+    file_sha1: String,
+    location: i32,
+    mutation: String,
+}
+
 fn explore(command_line_options: CommandLineOptions) {
-    let conn = Connection::open(command_line_options.database).unwrap();
+    let conn = SqliteConnection::establish(&command_line_options.database).unwrap();
 
     conn.execute(
         "create table if not exists mutations (
-            name text,
-            mutation text
-        )",
-        NO_PARAMS,
+            file_sha1 text,
+            location integer,
+            mutation text,
+            primary key (file_sha1, location, mutation)
+        )"
     ).unwrap();
-
-    //conn.execute(
-    //    "create table if not exists ? (
-    //        mutation text primary key
-    //    )",
-    //    &[&command_line_options.file],
-    //).unwrap();
 
     let file = fs::read_to_string(&command_line_options.file).expect("");
     let mut program: ast::Program = parser::parse_program(&file).unwrap();
 
-    let mutations: Vec<Mutation> = explore_mutations(&mut program);
+    let found_mutations: Vec<Mutation> = explore_mutations(&mut program);
 
-    for mutation in mutations {
-        let serialized = serde_json::to_string(&mutation).unwrap();
+    for found_mutation in found_mutations {
+        use schema::mutations::dsl::*;
 
-        conn.execute(
-            "insert into mutations (
-                name,
-                mutation
-            ) values (
-                ?1,
-                ?2
-            )",
-            &[&command_line_options.file, &serialized],
-        ).unwrap();
+        let entry = MutationEntry {
+            file_sha1: command_line_options.file.clone(),
+            location: found_mutation.traversal_location as i32,
+            mutation: serde_json::to_string(&found_mutation.mutation_type).unwrap(),
+        };
+
+        insert_into(mutations).values(entry).execute(&conn);
     }
 }
 
