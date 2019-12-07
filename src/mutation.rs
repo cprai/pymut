@@ -1,14 +1,25 @@
 use rustpython_parser::ast;
+use serde::{Serialize, Deserialize};
 
+use crate::serde_compatibility::OperatorSerde;
+use crate::serde_compatibility::ComparisonSerde;
+use crate::serde_compatibility::NumberSerde;
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Mutation {
     pub traversal_location: u64,
     pub mutation_type: MutationType,
 }
 
-#[derive(Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum MutationType {
+    #[serde(with = "OperatorSerde")]
     BinaryOperatorReplacement {new_operator: ast::Operator},
-    ComparisonOperatorReplacement {new_operator: ast::Comparison, which: usize},
+
+    #[serde(with = "ComparisonSerde")]
+    ComparisonOperatorReplacement {new_operator: ast::Comparison},
+
+    #[serde(with = "NumberSerde")]
     NumberConstantReplacement {new_constant: ast::Number},
 }
 
@@ -30,10 +41,10 @@ impl Mutate for ast::Expression {
                 }
             },
 
-            MutationType::ComparisonOperatorReplacement {new_operator, which} => {
+            MutationType::ComparisonOperatorReplacement {new_operator} => {
                 match &mut self.node {
                     ast::ExpressionType::Compare {vals: _, ops} => {
-                        ops[which] = new_operator;
+                        ops[0] = new_operator;
                     },
 
                     _ => unreachable!(),

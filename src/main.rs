@@ -15,6 +15,7 @@ use rustpython_vm::{
 mod traversal;
 mod mutation;
 mod util;
+mod serde_compatibility;
 use crate::traversal::Visitor;
 use crate::mutation::{Mutation, MutationType, Mutate};
 
@@ -62,6 +63,8 @@ fn main() {
             }
         });
     }
+    let serialized = serde_json::to_string(&mutations).unwrap();
+    println!("serialized = {}", serialized);
 
     for mutation in mutations {
         let mut mutated_program = program.clone();
