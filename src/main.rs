@@ -1,5 +1,6 @@
 use std::fs;
 use std::env;
+use parse_display::{Display, FromStr};
 use rustpython_parser::{ast, parser};
 use rustpython_compiler::{compile};
 use rustpython_vm::{
@@ -18,6 +19,28 @@ mod mutation;
 mod util;
 mod serde_compatibility;
 use crate::mutation::{Mutation, explore_mutations, apply_mutation};
+
+#[macro_use]
+extern crate clap;
+
+#[derive(Clap)]
+#[clap(version = "0.0.1", author = "Chuck Rai")]
+struct CommandLineOptions {
+    #[clap(short = "m", long = "mode")]
+    mode: Mode,
+
+    #[clap(short = "d", long = "database")]
+    database: String,
+
+    #[clap(short = "f", long = "file")]
+    file: String,
+}
+
+#[derive(Clap, FromStr, Display)]
+enum Mode {
+    Explore,
+    Execute,
+}
 
 enum RunResult {
     Sucess,
@@ -44,8 +67,13 @@ fn run(ast: ast::Program) -> RunResult {
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let file = fs::read_to_string(&args[1]).expect("");
+    let command_line_options = CommandLineOptions::parse();
+
+    println!("{}", command_line_options.mode);
+    println!("{}", command_line_options.database);
+    println!("{}", command_line_options.file);
+
+    let file = fs::read_to_string(command_line_options.file).expect("");
     let mut program: ast::Program = parser::parse_program(&file).unwrap();
 
     let mutations: Vec<Mutation> = explore_mutations(&mut program);
