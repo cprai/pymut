@@ -1,4 +1,6 @@
 use std::fs;
+use sha1::{Sha1, Digest};
+extern crate hex;
 use parse_display::{Display, FromStr};
 use rustpython_parser::{ast, parser};
 use rustpython_compiler::{compile};
@@ -113,7 +115,7 @@ fn explore(command_line_options: CommandLineOptions) {
         use schema::mutations::dsl::*;
 
         let entry = MutationEntry {
-            file_sha1: command_line_options.file.clone(),
+            file_sha1: hex::encode(Sha1::digest(file.as_bytes()).as_slice()),
             location: found_mutation.traversal_location as i32,
             mutation: serde_json::to_string(&found_mutation.mutation_type).unwrap(),
         };
