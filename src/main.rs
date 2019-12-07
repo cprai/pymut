@@ -1,6 +1,7 @@
 use std::fs;
 use std::env;
 use parse_display::{Display, FromStr};
+use rusqlite::{Connection, Result, NO_PARAMS};
 use rustpython_parser::{ast, parser};
 use rustpython_compiler::{compile};
 use rustpython_vm::{
@@ -66,32 +67,63 @@ fn run(ast: ast::Program) -> RunResult {
     }
 }
 
-fn main() {
-    let command_line_options = CommandLineOptions::parse();
+fn explore(command_line_options: CommandLineOptions) {
+    let conn = Connection::open(command_line_options.database).unwrap();
 
-    println!("{}", command_line_options.mode);
-    println!("{}", command_line_options.database);
-    println!("{}", command_line_options.file);
+    conn.execute(
+        "create table if not exists mutations (
+            name text,
+            mutation text
+        )",
+        NO_PARAMS,
+    ).unwrap();
 
-    let file = fs::read_to_string(command_line_options.file).expect("");
+    //conn.execute(
+    //    "create table if not exists ? (
+    //        mutation text primary key
+    //    )",
+    //    &[&command_line_options.file],
+    //).unwrap();
+
+    let file = fs::read_to_string(&command_line_options.file).expect("");
     let mut program: ast::Program = parser::parse_program(&file).unwrap();
 
     let mutations: Vec<Mutation> = explore_mutations(&mut program);
 
     for mutation in mutations {
-        //let serialized = serde_json::to_string(&mutation).unwrap();
-        //println!("serialized = {}", serialized);
+        let serialized = serde_json::to_string(&mutation).unwrap();
 
-        let mut mutated_program = program.clone();
-        apply_mutation(&mut mutated_program, mutation);
-
-        if mutated_program == program {
-            continue;
-        }
-
-        match run(mutated_program) {
-            RunResult::Sucess => println!("-- Uncaught mutation!"),
-            _ => println!("Caught mutation"),
-        }
+        conn.execute(
+            "insert into mutations (
+                name,
+                mutation
+            ) values (
+                ?1,
+                ?2
+            )",
+            &[&command_line_options.file, &serialized],
+        ).unwrap();
     }
 }
+
+fn main() {
+    let command_line_options = CommandLineOptions::parse();
+
+    match command_line_options.mode {
+        Mode::Execute => (),
+        Mode::Explore => explore(command_line_options),
+    }
+}
+
+
+//        let mut mutated_program = program.clone();
+//        apply_mutation(&mut mutated_program, mutation);
+//
+//        if mutated_program == program {
+//            continue;
+//        }
+//
+//        match run(mutated_program) {
+//            RunResult::Sucess => println!("-- Uncaught mutation!"),
+//            _ => println!("Caught mutation"),
+//        }
