@@ -53,7 +53,17 @@ impl Mutate for ast::Expression {
                 }
             },
 
-            _ => unreachable!(),
+            MutationType::NumberConstantReplacement {new_constant} => {
+                match &mut self.node {
+                    ast::ExpressionType::Number {value} => {
+                        *value = new_constant;
+                    },
+
+                    _ => unreachable!(),
+                }
+            },
+
+            //_ => unreachable!(),
 
         }
     }
@@ -66,7 +76,8 @@ pub fn explore_mutations(program: &mut ast::Program) -> Vec<Mutation> {
     program.visit(&mut |expr| {
         i += 1;
 
-        match expr.node {
+        match &expr.node {
+
             ast::ExpressionType::Binop {..} => {
                 {
                     let mutation = MutationType::BinaryOperatorReplacement{new_operator: ast::Operator::Mult};
@@ -81,6 +92,48 @@ pub fn explore_mutations(program: &mut ast::Program) -> Vec<Mutation> {
                     mutations.push(Mutation{traversal_location: i, mutation_type: mutation});
                 }
             },
+
+            ast::ExpressionType::Number {value} => {
+                fn plus_one(number: &ast::Number) -> ast::Number {
+                    match &number {
+                        ast::Number::Integer {value} => ast::Number::Integer{value: value + 1},
+                        ast::Number::Float {value} => ast::Number::Float{value: value + 1.0},
+                        ast::Number::Complex {real, imag} => ast::Number::Complex{real: real + 1.0, imag: *imag},
+                    }
+                }
+                fn minus_one(number: &ast::Number) -> ast::Number {
+                    match &number {
+                        ast::Number::Integer {value} => ast::Number::Integer{value: value - 1},
+                        ast::Number::Float {value} => ast::Number::Float{value: value - 1.0},
+                        ast::Number::Complex {real, imag} => ast::Number::Complex{real: real - 1.0, imag: *imag},
+                    }
+                }
+                fn from_i64(value: i64) -> ast::Number {
+                    ast::Number::Integer{value: num_bigint::BigInt::from(value)}
+                }
+
+                {
+                    let mutation = MutationType::NumberConstantReplacement{new_constant: plus_one(&value)};
+                    mutations.push(Mutation{traversal_location: i, mutation_type: mutation});
+                }
+                {
+                    let mutation = MutationType::NumberConstantReplacement{new_constant: minus_one(&value)};
+                    mutations.push(Mutation{traversal_location: i, mutation_type: mutation});
+                }
+                {
+                    let mutation = MutationType::NumberConstantReplacement{new_constant: from_i64(0)};
+                    mutations.push(Mutation{traversal_location: i, mutation_type: mutation});
+                }
+                {
+                    let mutation = MutationType::NumberConstantReplacement{new_constant: from_i64(1)};
+                    mutations.push(Mutation{traversal_location: i, mutation_type: mutation});
+                }
+                {
+                    let mutation = MutationType::NumberConstantReplacement{new_constant: from_i64(-1)};
+                    mutations.push(Mutation{traversal_location: i, mutation_type: mutation});
+                }
+            },
+
             _ => (),
         }
     });
