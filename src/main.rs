@@ -1,4 +1,5 @@
 use std::fs;
+use std::env;
 use rustpython_parser::{ast, parser};
 use rustpython_compiler::{compile};
 use rustpython_vm::{
@@ -34,7 +35,8 @@ fn run(ast: ast::Program) {
 }
 
 fn main() {
-    let file = fs::read_to_string("test.py").expect("");
+    let args: Vec<String> = env::args().collect();
+    let file = fs::read_to_string(&args[1]).expect("");
     let mut program: ast::Program = parser::parse_program(&file).unwrap();
 
     let mutations: Vec<Mutation> = explore_mutations(&mut program);
