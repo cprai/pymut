@@ -88,7 +88,7 @@ mod schema {
 
 use schema::mutations;
 
-#[derive(Insertable, Queryable, PartialEq)]
+#[derive(Clone, Insertable, Queryable, PartialEq)]
 #[table_name = "mutations"]
 struct MutationEntry {
     file_sha1: String,
@@ -117,15 +117,19 @@ fn execute(command_line_options: CommandLineOptions) {
     let mutation_entries = mutations.load::<MutationEntry>(&conn).unwrap();
 
     for mutation_entry in mutation_entries {
+        // Make copy to move into closure
+        let mutation_entry_copy = mutation_entry.clone();
 
         let callback = Box::new(move |ast: ast::Program, src: &str| -> ast::Program {
-            print!("{}", src);
             let target_file_hash = mutation_entry.file_sha1.clone();
             let file_hash = hex::encode(Sha1::digest(src.as_bytes()).as_slice());
-            println!("{}", file_hash);
 
             if file_hash == target_file_hash {
-                println!("{}", src);
+                let mut mutated_ast = ast.clone();
+                let mutation_type = serde_json::from_str(&mutation_entry.mutation).unwrap();
+                let loaded_mutation = Mutation{traversal_location: mutation_entry.location as u64, mutation_type: mutation_type};
+                apply_mutation(&mut mutated_ast, loaded_mutation);
+                return mutated_ast;
             }
 
             return ast;
@@ -134,39 +138,11 @@ fn execute(command_line_options: CommandLineOptions) {
         let mut settings = PySettings::default();
         // Disable caching of compiled bytecode
         settings.dont_write_bytecode = true;
+
         let vm = VirtualMachine::new_with_callback(settings, callback);
-        //let vm = VirtualMachine::new(PySettings::default());
-        //let vm: VirtualMachine = Default::default();
-        let context = pyobject::PyContext::default();
-        let scope = vm.new_scope_with_builtins();
         import::init_importlib(&vm, cfg!(not(target_os = "wasi")));
 
-        let r = run_script(&vm, scope, &command_line_options.file);
-
-        //let result = match compile::compile(&file, compile::Mode::Exec, command_line_options.file.clone(), vm.settings.optimize) {
-        //    Ok(code_object) => {
-        //        match vm.run_code_obj(context.new_code_object(code_object), scope) {
-        //            Ok(..) => RunResult::Sucess,
-        //            Err(..) => RunResult::RuntimeError,
-        //        }
-        //    },
-        //    Err(..) => RunResult::CompileError,
-        //};
-
-        /*
-
-        let result = match vm.compile(&file, compile::Mode::Exec, command_line_options.file.clone()) {
-            Ok(code_object) => {
-                vm.
-                match vm.run_code_obj(context.new_code_object((*code_object).code.clone() ), scope) {
-                    Ok(..) => RunResult::Sucess,
-                    Err(..) => RunResult::RuntimeError,
-                }
-            },
-            Err(..) => RunResult::CompileError,
-        };
-
-        */
+        let r = run_script(&vm, vm.new_scope_with_builtins(), &command_line_options.file);
     }
 }
 
@@ -186,7 +162,7 @@ fn explore(command_line_options: CommandLineOptions) {
     let mut program: ast::Program = parser::parse_program(&file).unwrap();
     print!("{}", file);
 
-    let found_mutations: Vec<Mutation> = explore_mutations(&mut program);
+    let found_mutations: Vec<Mutation> = explore_mutations(&mut program);//========================== try mutation and see if equal
 
     for found_mutation in found_mutations {
         use schema::mutations::dsl::*;
