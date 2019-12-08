@@ -119,6 +119,7 @@ fn execute(command_line_options: CommandLineOptions) {
     for mutation_entry in mutation_entries {
 
         let callback = Box::new(move |ast: ast::Program, src: &str| -> ast::Program {
+            print!("{}", src);
             let target_file_hash = mutation_entry.file_sha1.clone();
             let file_hash = hex::encode(Sha1::digest(src.as_bytes()).as_slice());
             println!("{}", file_hash);
@@ -130,15 +131,17 @@ fn execute(command_line_options: CommandLineOptions) {
             return ast;
         });
 
-        //let vm = VirtualMachine::new_with_callback(PySettings::default(), callback);
+        let mut settings = PySettings::default();
+        // Disable caching of compiled bytecode
+        settings.dont_write_bytecode = true;
+        let vm = VirtualMachine::new_with_callback(settings, callback);
         //let vm = VirtualMachine::new(PySettings::default());
-        let vm: VirtualMachine = Default::default();
+        //let vm: VirtualMachine = Default::default();
         let context = pyobject::PyContext::default();
         let scope = vm.new_scope_with_builtins();
         import::init_importlib(&vm, cfg!(not(target_os = "wasi")));
 
         let r = run_script(&vm, scope, &command_line_options.file);
-        println!("{}", r.is_err());
 
         //let result = match compile::compile(&file, compile::Mode::Exec, command_line_options.file.clone(), vm.settings.optimize) {
         //    Ok(code_object) => {
@@ -181,6 +184,7 @@ fn explore(command_line_options: CommandLineOptions) {
 
     let file = fs::read_to_string(&command_line_options.file).expect("");
     let mut program: ast::Program = parser::parse_program(&file).unwrap();
+    print!("{}", file);
 
     let found_mutations: Vec<Mutation> = explore_mutations(&mut program);
 
@@ -239,18 +243,6 @@ fn _run_string(vm: &VirtualMachine, scope: Scope, source: &str, source_path: Str
         .globals
         .set_item("__file__", vm.new_str(source_path), vm)?;
     vm.run_code_obj(code_obj, scope)
-}
-
-fn run_command(vm: &VirtualMachine, scope: Scope, source: String) -> PyResult<()> {
-    _run_string(vm, scope, &source, "<stdin>".to_string())?;
-    Ok(())
-}
-
-fn run_module(vm: &VirtualMachine, module: &str) -> PyResult<()> {
-    let runpy = vm.import("runpy", &[], 0)?;
-    let run_module_as_main = vm.get_attribute(runpy, "_run_module_as_main")?;
-    vm.invoke(&run_module_as_main, vec![vm.new_str(module.to_owned())])?;
-    Ok(())
 }
 
 fn run_script(vm: &VirtualMachine, scope: Scope, script_file: &str) -> PyResult<()> {
