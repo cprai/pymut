@@ -59,7 +59,9 @@ enum RunResult {
 
 fn run(ast: ast::Program) -> RunResult {
     let settings = PySettings::default();
-    let vm = VirtualMachine::new(settings);
+    let vm = VirtualMachine::new_with_callback(settings, &|ast, src| {
+        return ast;
+    });
     let context = pyobject::PyContext::default();
     let scope = vm.new_scope_with_builtins();
 
@@ -92,6 +94,67 @@ struct MutationEntry {
     file_sha1: String,
     location: i32,
     mutation: String,
+}
+
+struct Helper {
+    callback: Box<dyn Fn(ast::Program, &str) -> ast::Program>,
+}
+
+fn helper(filename: &str, callback: Box<dyn Fn(ast::Program, &str) -> ast::Program>) {
+    let h = Helper{callback: callback};
+    let file = fs::read_to_string(filename).expect("");
+    let program: ast::Program = parser::parse_program(&file).unwrap();
+    (*h.callback)(program, &file);
+}
+
+fn execute(command_line_options: CommandLineOptions) {
+    let conn = SqliteConnection::establish(&command_line_options.database).unwrap();
+
+    conn.execute(
+        "create table if not exists results (
+            file_sha1 text,
+            location integer,
+            mutation text,
+
+            executer_sha1 text,
+            result text,
+            primary key (file_sha1, location, mutation, executer_sha1, result)
+        )"
+    ).unwrap();
+
+    let file = fs::read_to_string(&command_line_options.file).expect("");
+
+    use schema::mutations::dsl::*;
+    let mutation_entries = mutations.load::<MutationEntry>(&conn).unwrap();
+
+    for mutation_entry in mutation_entries {
+
+        helper(&command_line_options.file, Box::new(move |ast: ast::Program, src: &str| -> ast::Program {
+            let target_file_hash = mutation_entry.file_sha1.clone();
+            println!("{}", mutation_entry.mutation);
+            return ast;
+        }));
+
+        //let callback = |ast: ast::Program, src: &str| -> ast::Program {
+        //    let newast = ast.clone();
+        //    let target_file_hash = mutation_entry.file_sha1.clone();
+        //    let file_hash = hex::encode(Sha1::digest(src.as_bytes()).as_slice());
+        //    if 2==3 {
+        //        return newast;
+        //    }
+
+        //    return newast;
+        //};
+
+        //unsafe {
+        //    let vm = VirtualMachine::new_with_callback(PySettings::default(), &callback);
+        //}
+
+    }
+
+    //let vm = VirtualMachine::new_with_callback(PySettings::default(), &|ast, src| {
+    //    return ast;
+    //});
 }
 
 fn explore(command_line_options: CommandLineOptions) {
@@ -128,7 +191,7 @@ fn main() {
     let command_line_options = CommandLineOptions::parse();
 
     match command_line_options.mode {
-        Mode::Execute => (),
+        Mode::Execute => execute(command_line_options),
         Mode::Explore => explore(command_line_options),
     }
 }
