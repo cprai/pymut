@@ -127,6 +127,11 @@ fn execute(command_line_options: CommandLineOptions) {
     use schema::mutations::dsl::*;
     let mutation_entries = mutations.load::<MutationEntry>(&conn).unwrap();
 
+    let total_mutations = mutation_entries.len();
+    println!("Executing {} mutations through {}", total_mutations, &command_line_options.file);
+    print!("Finished 0 of {}\r", total_mutations);
+    let mut counter: u64 = 0;
+
     for mutation_entry in mutation_entries {
         let mutation_entry_copy = mutation_entry.clone();
 
@@ -157,7 +162,11 @@ fn execute(command_line_options: CommandLineOptions) {
 
         use schema::results::dsl::*;
         insert_into(results).values(entry).execute(&conn);
+
+        counter += 1;
+        print!("Finished {} of {}                  \r", counter, total_mutations);
     }
+    println!("Results stored in {}", &command_line_options.database);
 }
 
 fn explore(command_line_options: CommandLineOptions) {
@@ -176,6 +185,8 @@ fn explore(command_line_options: CommandLineOptions) {
     let mut program: ast::Program = parser::parse_program(&file).unwrap();
 
     let found_mutations: Vec<Mutation> = explore_mutations(&mut program);//========================== try mutation and see if equal
+
+    println!("Adding {} mutations from {} to {}", found_mutations.len(), &command_line_options.file, &command_line_options.database);
 
     for found_mutation in found_mutations {
         use schema::mutations::dsl::*;
