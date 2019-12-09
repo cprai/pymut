@@ -206,7 +206,9 @@ fn explore(command_line_options: CommandLineOptions) {
             mutation: serde_json::to_string(&found_mutation.mutation_type).unwrap(),
         };
 
-        insert_into(mutations).values(entry).execute(&conn);
+        if let Err(_) = insert_into(mutations).values(entry).execute(&conn) {
+            continue;
+        }
 
         counter += 1;
     }
