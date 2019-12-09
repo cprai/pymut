@@ -186,9 +186,18 @@ fn explore(command_line_options: CommandLineOptions) {
 
     let found_mutations: Vec<Mutation> = explore_mutations(&mut program);//========================== try mutation and see if equal
 
-    println!("Adding {} mutations from {} to {}", found_mutations.len(), &command_line_options.file, &command_line_options.database);
+    println!("Found {} potential mutations in {}", found_mutations.len(), &command_line_options.file);
+    let mut counter: u64 = 0;
 
     for found_mutation in found_mutations {
+        let mut mutated_program = program.clone();
+        apply_mutation(&mut mutated_program, found_mutation.clone());
+
+        // Skip if mutation does nothing
+        if mutated_program == program {
+            continue;
+        }
+
         use schema::mutations::dsl::*;
 
         let entry = MutationEntry {
@@ -198,7 +207,11 @@ fn explore(command_line_options: CommandLineOptions) {
         };
 
         insert_into(mutations).values(entry).execute(&conn);
+
+        counter += 1;
     }
+
+    println!("Added {} mutations from {} to {}", counter, &command_line_options.file, &command_line_options.database);
 }
 
 fn main() {
