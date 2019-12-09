@@ -20,5 +20,6 @@ rusqlite = "0.20.0"
 parse-display = "0.1"
 sha-1 = "0.8.1"
 hex = "0.4.0"
+nix = "0.16.0"
 clap = { git = "https://github.com/clap-rs/clap", branch = "master" }
 diesel = { version = "1.4.0", features = ["sqlite", "numeric"] }
