@@ -181,7 +181,7 @@ fn explore(command_line_options: CommandLineOptions) {
     let file = fs::read_to_string(&command_line_options.file).expect("");
     let mut program: ast::Program = parser::parse_program(&file).unwrap();
 
-    let found_mutations: Vec<Mutation> = explore_mutations(&mut program);//========================== try mutation and see if equal
+    let found_mutations: Vec<Mutation> = explore_mutations(&mut program);
 
     println!("Found {} potential mutations in {}", found_mutations.len(), &command_line_options.file);
     let mut counter: u64 = 0;
