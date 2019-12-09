@@ -1,5 +1,4 @@
 use std::fs;
-use std::env;
 use std::process;
 use std::path::PathBuf;
 use sha1::{Sha1, Digest};
@@ -12,12 +11,8 @@ use parse_display::{Display, FromStr};
 use rustpython_parser::{ast, parser};
 use rustpython_compiler::{compile};
 use rustpython_vm::{
-    util,
-    import, match_class,
-    obj::{objint::PyInt, objtuple::PyTuple, objtype},
-    print_exception,
-    pyobject,
-    pyobject::{ItemProtocol, PyResult, PyRef},
+    util, import,
+    pyobject::{ItemProtocol, PyResult},
     scope::Scope,
     PySettings,
     VirtualMachine,
@@ -33,7 +28,7 @@ extern crate hex;
 #[macro_use]
 extern crate diesel;
 
-use diesel::sqlite::Sqlite;
+//use diesel::sqlite::Sqlite; not in use
 use diesel::insert_into;
 use diesel::prelude::*;
 
@@ -62,7 +57,7 @@ enum Mode {
 #[derive(Display)]
 enum RunResult {
     Sucess,
-    CompileError,
+    //CompileError, - reported as runtime error
     RuntimeError,
     Timeout,
 }
@@ -161,7 +156,9 @@ fn execute(command_line_options: CommandLineOptions) {
         };
 
         use schema::results::dsl::*;
-        insert_into(results).values(entry).execute(&conn);
+        if let Err(_) = insert_into(results).values(entry).execute(&conn) {
+            continue;
+        }
 
         counter += 1;
         print!("Finished {} of {}                  \r", counter, total_mutations);
@@ -260,7 +257,7 @@ fn run_script(vm: &VirtualMachine, scope: Scope, script_file: &str) -> PyResult<
         Ok(source) => {
             _run_string(vm, scope, &source, file_path.to_str().unwrap().to_string())?;
         }
-        Err(err) => {
+        Err(_err) => {
             process::exit(1);
         }
     }
@@ -273,7 +270,9 @@ fn run_script_with_timeout(script_file: &str, callback: Box<dyn Fn(ast::Program,
     settings.dont_write_bytecode = true;
 
     let vm = VirtualMachine::new_with_callback(settings, callback);
-    import::init_importlib(&vm, cfg!(not(target_os = "wasi")));
+    if let Err(_) = import::init_importlib(&vm, cfg!(not(target_os = "wasi"))) {
+        unreachable!();
+    }
 
     match fork() {
         Ok(ForkResult::Parent { child }) => {
