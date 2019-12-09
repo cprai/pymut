@@ -56,7 +56,7 @@ enum Mode {
 
 #[derive(Display)]
 enum RunResult {
-    Sucess,
+    Success,
     //CompileError, - reported as runtime error
     RuntimeError,
     Timeout,
@@ -280,7 +280,7 @@ fn run_script_with_timeout(script_file: &str, callback: Box<dyn Fn(ast::Program,
             match waitpid(child, Some(WaitPidFlag::WNOHANG)) {
                 Ok(WaitStatus::Exited ( _pid, status )) => {
                     match status {
-                        0 => RunResult::Sucess,
+                        0 => RunResult::Success,
                         _ => RunResult::RuntimeError,
                     }
                 },
