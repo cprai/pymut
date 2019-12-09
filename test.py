@@ -1,3 +1,5 @@
-import math
+import mymath
 
-print(math.add(3, 4))
+print(mymath.add(3, 4))
+
+assert mymath.add(3, 4) == 7
