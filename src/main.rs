@@ -1,5 +1,11 @@
 use std::fs;
+use std::process;
 use sha1::{Sha1, Digest};
+use nix::unistd::{fork, ForkResult};
+use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
+use nix::sys::signal::{kill, Signal};
+use std::time::Duration;
+use std::thread::sleep;
 extern crate hex;
 use parse_display::{Display, FromStr};
 use rustpython_parser::{ast, parser};
@@ -142,7 +148,15 @@ fn execute(command_line_options: CommandLineOptions) {
         let vm = VirtualMachine::new_with_callback(settings, callback);
         import::init_importlib(&vm, cfg!(not(target_os = "wasi")));
 
-        let r = run_script(&vm, vm.new_scope_with_builtins(), &command_line_options.file);
+        match fork() {
+            Ok(ForkResult::Parent { child }) => {
+                println!("Continuing execution in parent process, new child has pid: {}", child);
+            },
+            Ok(ForkResult::Child) => {
+                let r = run_script(&vm, vm.new_scope_with_builtins(), &command_line_options.file);
+            },
+            Err(_) => unreachable!(),
+        }
     }
 }
 
@@ -201,7 +215,6 @@ fn main() {
 
 use std::env;
 use std::path::PathBuf;
-use std::process;
 use rustpython_vm::{
     util,
     obj::{objint::PyInt, objtuple::PyTuple, objtype},
@@ -250,4 +263,39 @@ fn run_script(vm: &VirtualMachine, scope: Scope, script_file: &str) -> PyResult<
         }
     }
     Ok(())
+}
+
+fn run_script_with_timeout(script_file: &str, callback: Box<dyn Fn(ast::Program, &str) -> ast::Program>, timeout: Duration) -> RunResult {
+    let mut settings = PySettings::default();
+    // Disable caching of compiled bytecode
+    settings.dont_write_bytecode = true;
+
+    let vm = VirtualMachine::new_with_callback(settings, callback);
+    import::init_importlib(&vm, cfg!(not(target_os = "wasi")));
+
+    match fork() {
+        Ok(ForkResult::Parent { child }) => {
+            sleep(timeout);
+            match waitpid(child, Some(WaitPidFlag::WNOHANG)) {
+                Ok(WaitStatus::Exited ( _pid, status )) => {
+                    match status {
+                        0 => RunResult::Sucess,
+                        _ => RunResult::RuntimeError,
+                    }
+                },
+                Ok(_) | Err(_) => {
+                    kill(child, Signal::SIGKILL).expect("Killing child process failed");
+                    RunResult::Timeout
+                },
+            }
+        },
+        Ok(ForkResult::Child) => {
+            let r = run_script(&vm, vm.new_scope_with_builtins(), script_file);
+            if r.is_ok() {
+                process::exit(0);
+            }
+            process::exit(1);
+        },
+        Err(_) => unreachable!(),
+    }
 }
