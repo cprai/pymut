@@ -75,9 +75,19 @@ mod schema {
             mutation -> Text,
         }
     }
+    table! {
+        results (file_sha1, location, mutation, test_runner_sha1, result) {
+            file_sha1 -> Text,
+            location -> Integer,
+            mutation -> Text,
+            test_runner_sha1 -> Text,
+            result -> Text,
+        }
+    }
 }
 
 use schema::mutations;
+use schema::results;
 
 #[derive(Clone, Insertable, Queryable, PartialEq)]
 #[table_name = "mutations"]
@@ -85,6 +95,16 @@ struct MutationEntry {
     file_sha1: String,
     location: i32,
     mutation: String,
+}
+
+#[derive(Clone, Insertable, Queryable, PartialEq)]
+#[table_name = "results"]
+struct ResultEntry {
+    file_sha1: String,
+    location: i32,
+    mutation: String,
+    test_runner_sha1: String,
+    result: String,
 }
 
 fn execute(command_line_options: CommandLineOptions) {
@@ -95,19 +115,21 @@ fn execute(command_line_options: CommandLineOptions) {
             file_sha1 text,
             location integer,
             mutation text,
-
-            executer_sha1 text,
+            test_runner_sha1 text,
             result text,
-            primary key (file_sha1, location, mutation, executer_sha1, result)
+            primary key (file_sha1, location, mutation, test_runner_sha1, result)
         )"
     ).unwrap();
 
     let file = fs::read_to_string(&command_line_options.file).expect("");
+    let test_runner_hash = hex::encode(Sha1::digest(file.as_bytes()).as_slice());
 
     use schema::mutations::dsl::*;
     let mutation_entries = mutations.load::<MutationEntry>(&conn).unwrap();
 
     for mutation_entry in mutation_entries {
+        let mutation_entry_copy = mutation_entry.clone();
+
         let callback = Box::new(move |ast: ast::Program, src: &str| -> ast::Program {
             let target_file_hash = mutation_entry.file_sha1.clone();
             let file_hash = hex::encode(Sha1::digest(src.as_bytes()).as_slice());
@@ -123,8 +145,18 @@ fn execute(command_line_options: CommandLineOptions) {
             return ast;
         });
 
-        let result = run_script_with_timeout(&command_line_options.file, callback, Duration::new(1, 0));
-        println!("{}", result);
+        let run_result = run_script_with_timeout(&command_line_options.file, callback, Duration::new(1, 0));
+
+        let entry = ResultEntry {
+            file_sha1: mutation_entry_copy.file_sha1,
+            location: mutation_entry_copy.location,
+            mutation: mutation_entry_copy.mutation,
+            test_runner_sha1: test_runner_hash.clone(),
+            result: run_result.to_string(),
+        };
+
+        use schema::results::dsl::*;
+        insert_into(results).values(entry).execute(&conn);
     }
 }
 
@@ -142,7 +174,6 @@ fn explore(command_line_options: CommandLineOptions) {
 
     let file = fs::read_to_string(&command_line_options.file).expect("");
     let mut program: ast::Program = parser::parse_program(&file).unwrap();
-    print!("{}", file);
 
     let found_mutations: Vec<Mutation> = explore_mutations(&mut program);//========================== try mutation and see if equal
 
