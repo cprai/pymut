@@ -20,25 +20,25 @@ pub enum OperatorSerde {
     FloorDiv,
 }
 
-use rustpython_parser::ast::BooleanOperator;
-
-#[derive(Serialize, Deserialize)]
-#[serde(remote = "BooleanOperator")]
-pub enum BooleanOperatorSerde {
-    And,
-    Or,
-}
-
-use rustpython_parser::ast::UnaryOperator;
-
-#[derive(Serialize, Deserialize)]
-#[serde(remote = "UnaryOperator")]
-pub enum UnaryOperatorSerde {
-    Pos,
-    Neg,
-    Not,
-    Inv,
-}
+//use rustpython_parser::ast::BooleanOperator;
+//
+//#[derive(Serialize, Deserialize)]
+//#[serde(remote = "BooleanOperator")]
+//pub enum BooleanOperatorSerde {
+//    And,
+//    Or,
+//}
+//
+//use rustpython_parser::ast::UnaryOperator;
+//
+//#[derive(Serialize, Deserialize)]
+//#[serde(remote = "UnaryOperator")]
+//pub enum UnaryOperatorSerde {
+//    Pos,
+//    Neg,
+//    Not,
+//    Inv,
+//}
 
 use rustpython_parser::ast::Comparison;
 
