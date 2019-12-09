@@ -157,7 +157,7 @@ fn execute(command_line_options: CommandLineOptions) {
 
         use schema::results::dsl::*;
         if let Err(_) = insert_into(results).values(entry).execute(&conn) {
-            continue;
+            // Ignore error
         }
 
         counter += 1;
