@@ -1,23 +1,24 @@
 use std::fs;
+use std::env;
 use std::process;
+use std::path::PathBuf;
 use sha1::{Sha1, Digest};
 use nix::unistd::{fork, ForkResult};
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::sys::signal::{kill, Signal};
 use std::time::Duration;
 use std::thread::sleep;
-extern crate hex;
 use parse_display::{Display, FromStr};
 use rustpython_parser::{ast, parser};
 use rustpython_compiler::{compile};
 use rustpython_vm::{
-    //import, match_class,
-    //obj,
-    //print_exception,
-    pyobject,
-    //pyobject::{ItemProtocol, PyResult, PyRef},
-    //scope::Scope,
+    util,
     import, match_class,
+    obj::{objint::PyInt, objtuple::PyTuple, objtype},
+    print_exception,
+    pyobject,
+    pyobject::{ItemProtocol, PyResult, PyRef},
+    scope::Scope,
     PySettings,
     VirtualMachine,
 };
@@ -26,6 +27,8 @@ mod traversal;
 mod mutation;
 mod serde_compatibility;
 use crate::mutation::{Mutation, explore_mutations, apply_mutation};
+
+extern crate hex;
 
 #[macro_use]
 extern crate diesel;
@@ -56,31 +59,13 @@ enum Mode {
     Execute,
 }
 
+#[derive(Display)]
 enum RunResult {
     Sucess,
     CompileError,
     RuntimeError,
     Timeout,
 }
-
-//fn run(ast: ast::Program) -> RunResult {
-//    let settings = PySettings::default();
-//    let vm = VirtualMachine::new_with_callback(settings, &|ast, src| {
-//        return ast;
-//    });
-//    let context = pyobject::PyContext::default();
-//    let scope = vm.new_scope_with_builtins();
-//
-//    match compile::compile_program(ast, "".to_string(), 0) {
-//        Ok(code_object) => {
-//            match vm.run_code_obj(context.new_code_object(code_object), scope) {
-//                Ok(..) => RunResult::Sucess,
-//                Err(..) => RunResult::RuntimeError,
-//            }
-//        },
-//        Err(..) => RunResult::CompileError,
-//    }
-//}
 
 mod schema {
     table! {
@@ -123,9 +108,6 @@ fn execute(command_line_options: CommandLineOptions) {
     let mutation_entries = mutations.load::<MutationEntry>(&conn).unwrap();
 
     for mutation_entry in mutation_entries {
-        // Make copy to move into closure
-        let mutation_entry_copy = mutation_entry.clone();
-
         let callback = Box::new(move |ast: ast::Program, src: &str| -> ast::Program {
             let target_file_hash = mutation_entry.file_sha1.clone();
             let file_hash = hex::encode(Sha1::digest(src.as_bytes()).as_slice());
@@ -141,22 +123,8 @@ fn execute(command_line_options: CommandLineOptions) {
             return ast;
         });
 
-        let mut settings = PySettings::default();
-        // Disable caching of compiled bytecode
-        settings.dont_write_bytecode = true;
-
-        let vm = VirtualMachine::new_with_callback(settings, callback);
-        import::init_importlib(&vm, cfg!(not(target_os = "wasi")));
-
-        match fork() {
-            Ok(ForkResult::Parent { child }) => {
-                println!("Continuing execution in parent process, new child has pid: {}", child);
-            },
-            Ok(ForkResult::Child) => {
-                let r = run_script(&vm, vm.new_scope_with_builtins(), &command_line_options.file);
-            },
-            Err(_) => unreachable!(),
-        }
+        let result = run_script_with_timeout(&command_line_options.file, callback, Duration::new(1, 0));
+        println!("{}", result);
     }
 }
 
@@ -199,29 +167,6 @@ fn main() {
         Mode::Explore => explore(command_line_options),
     }
 }
-
-
-//        let mut mutated_program = program.clone();
-//        apply_mutation(&mut mutated_program, mutation);
-//
-//        if mutated_program == program {
-//            continue;
-//        }
-//
-//        match run(mutated_program) {
-//            RunResult::Sucess => println!("-- Uncaught mutation!"),
-//            _ => println!("Caught mutation"),
-//        }
-
-use std::env;
-use std::path::PathBuf;
-use rustpython_vm::{
-    util,
-    obj::{objint::PyInt, objtuple::PyTuple, objtype},
-    print_exception,
-    pyobject::{ItemProtocol, PyResult},
-    scope::Scope,
-};
 
 fn _run_string(vm: &VirtualMachine, scope: Scope, source: &str, source_path: String) -> PyResult {
     let code_obj = vm
